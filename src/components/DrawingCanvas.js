@@ -1,31 +1,45 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react"; // Ensure useState is imported
 import paper from "paper";
+import { io } from "socket.io-client";
 
-function DrawingCanvas() {
+function DrawingCanvas({ drawingData }) {
+  // Assuming drawingData is passed as a prop
   const canvasRef = useRef(null);
 
   useEffect(() => {
+    // Establish a WebSocket connection to the backend
+    const socket = io("http://localhost:3001");
+
     paper.setup(canvasRef.current);
 
-    // Draw grid
+    // Function to draw the existing drawing data
+    const drawExistingData = () => {
+      if (drawingData) {
+        drawingData.forEach((line) => {
+          const path = new paper.Path({
+            segments: line.segments,
+            strokeColor: line.color,
+            // Add more attributes based on your data structure
+          });
+          path.simplify(10);
+        });
+      }
+    };
+
+    drawExistingData();
+
+    // Function to draw grid
     const drawGrid = () => {
-      // Define grid properties
       const gridSize = 25;
       const dotSize = 1;
+      const bounds = paper.view.bounds.clone().expand(100); // Example expansion
 
-      // Manually inflate bounds by a certain amount (e.g., to expand the view bounds)
-      const padding = 100; // Amount to inflate the bounds by
-      const bounds = new paper.Rectangle(paper.view.bounds);
-      bounds.expand(padding * 2); // Expanding bounds
-
-      // Remove previous grid to prevent redraw overlap
       paper.project.activeLayer.children.forEach((child) => {
         if (child.data && child.data.isGrid) {
           child.remove();
         }
       });
 
-      // Generate grid
       for (
         let x = bounds.left - (bounds.left % gridSize);
         x < bounds.right;
@@ -50,13 +64,11 @@ function DrawingCanvas() {
 
     let path;
 
-    // Setup tool for drawing
     const tool = new paper.Tool();
-    tool.minDistance = 10; // Minimum distance between path points
+    tool.minDistance = 10;
 
     tool.onMouseDown = (event) => {
       if (!event.modifiers.space) {
-        // Start a new path
         path = new paper.Path();
         path.strokeColor = "black";
         path.add(event.point);
@@ -65,37 +77,29 @@ function DrawingCanvas() {
 
     tool.onMouseDrag = (event) => {
       if (!event.modifiers.space && path) {
-        // Add points to the path
         path.add(event.point);
+        socket.emit("draw", { point: event.point, color: path.strokeColor });
       }
     };
 
     tool.onMouseUp = () => {
       if (path) {
-        path.simplify(10); // Simplify the path to smooth curves
+        path.simplify(10);
       }
     };
 
-    // Pan and zoom
-    let lastPoint = null;
+    socket.on("draw", (data) => {
+      const newPath = new paper.Path();
+      newPath.strokeColor = data.color;
+      newPath.add(new paper.Point(data.point.x, data.point.y));
+      newPath.simplify(10);
+    });
+
     paper.view.onMouseDrag = (event) => {
       if (event.modifiers.space) {
-        if (lastPoint) {
-          paper.view.translate(event.point.subtract(lastPoint));
-          drawGrid(); // Redraw grid to fill new areas
-        }
-        lastPoint = event.point;
+        paper.view.translate(event.delta);
+        drawGrid();
       }
-    };
-
-    paper.view.onMouseDown = (event) => {
-      if (event.modifiers.space) {
-        lastPoint = event.point;
-      }
-    };
-
-    paper.view.onMouseUp = () => {
-      lastPoint = null;
     };
 
     paper.view.onMouseWheel = (event) => {
@@ -103,9 +107,14 @@ function DrawingCanvas() {
       const zoomCenter = event.point;
       const zoomFactor = event.deltaY < 0 ? 1.1 : 0.9;
       paper.view.scale(zoomFactor, zoomCenter);
-      drawGrid(); // Redraw grid to adjust to new zoom level
+      drawGrid();
     };
-  }, []);
+
+    // Cleanup on component unmount
+    return () => {
+      socket.off("draw");
+    };
+  }, [drawingData]); // Dependency array to trigger re-render
 
   return (
     <canvas
