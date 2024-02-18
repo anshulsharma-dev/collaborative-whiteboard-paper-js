@@ -1,25 +1,21 @@
-import React, { useEffect, useRef, useState } from "react"; // Ensure useState is imported
+import React, { useEffect, useRef, useState } from "react";
 import paper from "paper";
 import { io } from "socket.io-client";
 
 function DrawingCanvas({ drawingData }) {
-  // Assuming drawingData is passed as a prop
   const canvasRef = useRef(null);
 
   useEffect(() => {
-    // Establish a WebSocket connection to the backend
     const socket = io("http://localhost:3001");
 
     paper.setup(canvasRef.current);
 
-    // Function to draw the existing drawing data
     const drawExistingData = () => {
       if (drawingData) {
         drawingData.forEach((line) => {
           const path = new paper.Path({
             segments: line.segments,
             strokeColor: line.color,
-            // Add more attributes based on your data structure
           });
           path.simplify(10);
         });
@@ -28,11 +24,10 @@ function DrawingCanvas({ drawingData }) {
 
     drawExistingData();
 
-    // Function to draw grid
     const drawGrid = () => {
       const gridSize = 25;
       const dotSize = 1;
-      const bounds = paper.view.bounds.clone().expand(100); // Example expansion
+      const bounds = paper.view.bounds.clone().expand(100);
 
       paper.project.activeLayer.children.forEach((child) => {
         if (child.data && child.data.isGrid) {
@@ -110,11 +105,10 @@ function DrawingCanvas({ drawingData }) {
       drawGrid();
     };
 
-    // Cleanup on component unmount
     return () => {
       socket.off("draw");
     };
-  }, [drawingData]); // Dependency array to trigger re-render
+  }, [drawingData]);
 
   return (
     <canvas

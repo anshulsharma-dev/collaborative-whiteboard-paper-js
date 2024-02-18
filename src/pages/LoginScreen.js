@@ -1,6 +1,5 @@
-// src/pages/LoginScreen.js
 import React, { useState } from "react";
-import axios from 'axios'; 
+import axios from "axios";
 
 function LoginScreen({ onLogin }) {
   const [username, setUsername] = useState("");
@@ -9,16 +8,19 @@ function LoginScreen({ onLogin }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      // Replace 'http://localhost:3001/api/users/login' with your actual backend login endpoint
-      const response = await axios.post('http://localhost:3001/api/users/login', {
-        username,
-        password
-      });
-      // Assuming the backend response includes the user data or token upon successful login
+      const response = await axios.post(
+        "http://localhost:3001/api/users/login",
+        {
+          username,
+          password,
+        }
+      );
       onLogin(response.data);
     } catch (error) {
-      console.error("Login error:", error.response?.data?.message || "An error occurred");
-      // Optionally, handle login failure by updating UI or showing an error message
+      console.error(
+        "Login error:",
+        error.response?.data?.message || "An error occurred"
+      );
     }
   };
 
